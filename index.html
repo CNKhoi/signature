@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chữ Ký Điện Tử</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary-signature-color: #171f79;
+        }
+
+        body {
+            font-family: "Inter", Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 60%, #e0f2fe 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        canvas {
+            border: 2px dashed #cbd5e1;
+            background-color: #ffffff;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 42px;
+            height: 42px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch {
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+        }
+        input[type="color"]::-moz-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-moz-color-swatch {
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .btn {
+            font-weight: 700;
+            padding: 12px 18px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+            transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+        }
+
+        .btn:active { transform: translateY(0); }
+
+        .btn-primary {
+            background-color: var(--primary-signature-color);
+            color: #ffffff;
+        }
+
+        .btn-outline {
+            background-color: #ffffff;
+            color: var(--primary-signature-color);
+            border: 1px solid #c7d2fe;
+        }
+
+        .btn-danger {
+            background-color: #ef4444;
+            color: #ffffff;
+        }
+
+        .hint-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center">
+    <main class="bg-white/95 backdrop-blur p-5 sm:p-8 rounded-2xl shadow-2xl max-w-3xl w-full border border-white">
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-black text-slate-800">Chữ Ký Điện Tử</h1>
+            <p class="text-sm text-slate-500 mt-2">Ký trực tiếp, chọn màu nét, tải PNG nền trắng hoặc PNG đã xóa nền.</p>
+        </div>
+
+        <section class="rounded-2xl p-3 bg-slate-50 border border-slate-200 mb-5">
+            <canvas id="signatureCanvas" class="w-full h-64 sm:h-72 rounded-xl"></canvas>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-center">
+            <div class="hint-box rounded-2xl p-4 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+                <div class="flex items-center gap-3">
+                    <label for="strokeColor" class="text-slate-700 font-bold whitespace-nowrap">Màu nét vẽ:</label>
+                    <input type="color" id="strokeColor" value="#171f79" title="Chọn màu nét vẽ">
+                    <span id="colorValue" class="font-mono text-sm text-slate-600">#171f79</span>
+                </div>
+
+                <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                    <input id="transparentBackground" type="checkbox" class="w-4 h-4 accent-[#171f79]" checked>
+                    <span>Tải về dạng xóa nền</span>
+                </label>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <button id="downloadButton" class="btn btn-primary" type="button">Tải chữ ký</button>
+                <button id="downloadWhiteButton" class="btn btn-outline" type="button">Tải nền trắng</button>
+                <button id="clearButton" class="btn btn-danger" type="button">Đặt lại</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('signatureCanvas');
+        const ctx = canvas.getContext('2d');
+        const clearButton = document.getElementById('clearButton');
+        const downloadButton = document.getElementById('downloadButton');
+        const downloadWhiteButton = document.getElementById('downloadWhiteButton');
+        const strokeColorInput = document.getElementById('strokeColor');
+        const colorValue = document.getElementById('colorValue');
+        const transparentBackgroundInput = document.getElementById('transparentBackground');
+
+        const DEFAULT_SIGNATURE_COLOR = '#171f79';
+        let drawing = false;
+        let hasSignature = false;
+
+        function setupCanvasStyle() {
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = strokeColorInput.value || DEFAULT_SIGNATURE_COLOR;
+        }
+
+        function resizeCanvas() {
+            const imageBeforeResize = document.createElement('canvas');
+            imageBeforeResize.width = canvas.width;
+            imageBeforeResize.height = canvas.height;
+
+            if (canvas.width && canvas.height) {
+                imageBeforeResize.getContext('2d').drawImage(canvas, 0, 0);
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+
+            canvas.width = Math.round(rect.width * ratio);
+            canvas.height = Math.round(rect.height * ratio);
+
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            setupCanvasStyle();
+
+            if (imageBeforeResize.width && imageBeforeResize.height && hasSignature) {
+                ctx.drawImage(imageBeforeResize, 0, 0, imageBeforeResize.width, imageBeforeResize.height, 0, 0, rect.width, rect.height);
+            }
+        }
+
+        function getPoint(event) {
+            const rect = canvas.getBoundingClientRect();
+            const source = event.touches ? event.touches[0] : event;
+
+            return {
+                x: source.clientX - rect.left,
+                y: source.clientY - rect.top
+            };
+        }
+
+        function startDraw(event) {
+            event.preventDefault();
+            drawing = true;
+            hasSignature = true;
+
+            const point = getPoint(event);
+            ctx.beginPath();
+            ctx.moveTo(point.x, point.y);
+        }
+
+        function draw(event) {
+            if (!drawing) return;
+            event.preventDefault();
+
+            const point = getPoint(event);
+            ctx.lineTo(point.x, point.y);
+            ctx.stroke();
+        }
+
+        function stopDraw() {
+            if (!drawing) return;
+            drawing = false;
+            ctx.closePath();
+        }
+
+        function clearSignature() {
+            const rect = canvas.getBoundingClientRect();
+            ctx.clearRect(0, 0, rect.width, rect.height);
+            hasSignature = false;
+        }
+
+        function downloadDataUrl(dataUrl, filename) {
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportSignature(removeBackground = true) {
+            if (!hasSignature) {
+                alert('Bạn chưa ký. Vui lòng ký trước khi tải về.');
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const outputCanvas = document.createElement('canvas');
+            const outputCtx = outputCanvas.getContext('2d');
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+
+            outputCanvas.width = Math.round(rect.width * ratio);
+            outputCanvas.height = Math.round(rect.height * ratio);
+
+            if (!removeBackground) {
+                outputCtx.fillStyle = '#ffffff';
+                outputCtx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+            }
+
+            outputCtx.drawImage(canvas, 0, 0, outputCanvas.width, outputCanvas.height);
+
+            const now = new Date();
+            const timestamp = now.getFullYear().toString()
+                + String(now.getMonth() + 1).padStart(2, '0')
+                + String(now.getDate()).padStart(2, '0')
+                + '_'
+                + String(now.getHours()).padStart(2, '0')
+                + String(now.getMinutes()).padStart(2, '0')
+                + String(now.getSeconds()).padStart(2, '0');
+
+            const filename = removeBackground
+                ? `chu-ky-xoa-nen-${timestamp}.png`
+                : `chu-ky-nen-trang-${timestamp}.png`;
+
+            downloadDataUrl(outputCanvas.toDataURL('image/png'), filename);
+        }
+
+        window.addEventListener('load', resizeCanvas);
+        window.addEventListener('resize', resizeCanvas);
+
+        strokeColorInput.addEventListener('input', (e) => {
+            const selectedColor = e.target.value || DEFAULT_SIGNATURE_COLOR;
+            ctx.strokeStyle = selectedColor;
+            colorValue.textContent = selectedColor.toUpperCase();
+        });
+
+        clearButton.addEventListener('click', clearSignature);
+
+        downloadButton.addEventListener('click', () => {
+            exportSignature(transparentBackgroundInput.checked);
+        });
+
+        downloadWhiteButton.addEventListener('click', () => {
+            exportSignature(false);
+        });
+
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDraw);
+        canvas.addEventListener('mouseout', stopDraw);
+
+        canvas.addEventListener('touchstart', startDraw, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDraw);
+        canvas.addEventListener('touchcancel', stopDraw);
+    </script>
+</body>
+</html>
