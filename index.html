@@ -2,28 +2,30 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Chữ Ký Điện Tử</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --primary-signature-color: #171f79;
-        }
+        :root { --primary-signature-color: #171f79; }
+        * { box-sizing: border-box; }
+        html, body { width: 100%; min-height: 100%; margin: 0; }
 
         body {
             font-family: "Inter", Arial, sans-serif;
             background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 60%, #e0f2fe 100%);
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
+            min-height: 100dvh;
+            padding: 6px;
         }
 
         canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
             border: 2px dashed #cbd5e1;
             background-color: #ffffff;
             touch-action: none;
             cursor: crosshair;
+            border-radius: 16px;
         }
 
         input[type="color"] {
@@ -39,7 +41,6 @@
             border-radius: 10px;
             overflow: hidden;
         }
-
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
         input[type="color"]::-webkit-color-swatch {
             border: 2px solid #e2e8f0;
@@ -51,6 +52,21 @@
             border-radius: 10px;
         }
 
+        .signature-card {
+            width: 100%;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .signature-section { width: 100%; }
+
+        .signature-pad-frame {
+            width: 100%;
+            aspect-ratio: 16 / 7;
+            min-height: 420px;
+            max-height: 680px;
+        }
+
         .btn {
             font-weight: 700;
             padding: 12px 18px;
@@ -58,50 +74,151 @@
             box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
             transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
         }
-
         .btn:hover {
             transform: translateY(-1px);
             box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
         }
-
         .btn:active { transform: translateY(0); }
+        .btn-primary { background-color: var(--primary-signature-color); color: #ffffff; }
+        .btn-outline { background-color: #ffffff; color: var(--primary-signature-color); border: 1px solid #c7d2fe; }
+        .btn-danger { background-color: #ef4444; color: #ffffff; }
+        .hint-box { background: #f8fafc; border: 1px solid #e2e8f0; }
 
-        .btn-primary {
-            background-color: var(--primary-signature-color);
-            color: #ffffff;
+        @media (max-width: 768px) {
+            body {
+                padding: 0;
+                background: #f3f4f6;
+            }
+
+            .signature-card {
+                width: 100vw;
+                max-width: 100vw;
+                margin: 0;
+                border-radius: 0;
+                border-left: 0 !important;
+                border-right: 0 !important;
+                padding: 1px !important;
+            }
+
+            .signature-header {
+                margin-bottom: 2px !important;
+            }
+
+            .signature-header h1 {
+                font-size: 0.95rem;
+                line-height: 1.15;
+            }
+
+            .signature-header p { display: none; }
+
+            /* Cho vùng ký tràn gần hết chiều ngang màn hình */
+            .signature-section {
+                width: 100vw;
+                margin-left: calc(50% - 50vw);
+                margin-right: calc(50% - 50vw);
+                padding: 0 !important;
+                margin-bottom: 4px !important;
+                border-left: 0 !important;
+                border-right: 0 !important;
+                border-radius: 0 !important;
+            }
+
+            /* Lớn hơn bản user gửi nhưng vẫn giữ chữ nhật: width luôn lớn hơn height */
+            .signature-pad-frame {
+                width: 100vw;
+                height: min(72vw, 52vh, 430px);
+                min-height: 270px;
+                max-height: 430px;
+                aspect-ratio: auto;
+            }
+
+            .hint-box {
+                padding: 8px !important;
+                gap: 8px !important;
+                border-radius: 12px !important;
+            }
+
+            .btn {
+                width: 100%;
+                padding: 11px 12px;
+                font-size: 0.92rem;
+            }
         }
 
-        .btn-outline {
-            background-color: #ffffff;
-            color: var(--primary-signature-color);
-            border: 1px solid #c7d2fe;
+        @media (max-width: 480px) {
+            .signature-card {
+                padding: 0 !important;
+            }
+
+            .signature-section {
+                width: 100vw;
+                margin-left: calc(50% - 50vw);
+                margin-right: calc(50% - 50vw);
+                padding: 0 !important;
+                margin-bottom: 3px !important;
+            }
+
+            .signature-pad-frame {
+                width: 100vw;
+                height: min(76vw, 54vh, 410px);
+                min-height: 280px;
+                max-height: 410px;
+                aspect-ratio: auto;
+            }
+
+            input[type="color"] {
+                width: 36px;
+                height: 36px;
+            }
         }
 
-        .btn-danger {
-            background-color: #ef4444;
-            color: #ffffff;
-        }
-
-        .hint-box {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
+        @media (max-width: 900px) and (orientation: landscape) {
+            body { padding: 0; }
+            .signature-header { display: none; }
+            .signature-card {
+                width: 100vw;
+                max-width: 100vw;
+                border-radius: 0;
+                padding: 0 !important;
+            }
+            .signature-section {
+                width: 100vw;
+                margin-left: calc(50% - 50vw);
+                margin-right: calc(50% - 50vw);
+                padding: 0 !important;
+                margin-bottom: 3px !important;
+                border-left: 0 !important;
+                border-right: 0 !important;
+                border-radius: 0 !important;
+            }
+            .signature-pad-frame {
+                width: 100vw;
+                aspect-ratio: auto;
+                height: calc(100dvh - 98px);
+                min-height: 240px;
+                max-height: none;
+            }
+            .hint-box { padding: 6px 8px !important; }
+            .btn { padding: 9px 12px; }
         }
     </style>
 </head>
-<body class="flex items-center justify-center">
-    <main class="bg-white/95 backdrop-blur p-5 sm:p-8 rounded-2xl shadow-2xl max-w-3xl w-full border border-white">
-        <div class="text-center mb-6">
-            <h1 class="text-3xl font-black text-slate-800">Chữ Ký Điện Tử</h1>
-            <p class="text-sm text-slate-500 mt-2">Ký trực tiếp, chọn màu nét, tải PNG nền trắng hoặc PNG đã xóa nền.</p>
+<body>
+    <main class="signature-card bg-white/95 backdrop-blur p-3 sm:p-5 rounded-2xl shadow-2xl border border-white">
+        <div class="signature-header text-center mb-3">
+            <h1 class="font-black text-slate-800">Chữ Ký Điện Tử</h1>
+            <p class="text-sm text-slate-500 mt-1">Khung ký chữ nhật ngang, ưu tiên chiều rộng rất lớn trên điện thoại.</p>
         </div>
 
-        <section class="rounded-2xl p-3 bg-slate-50 border border-slate-200 mb-5">
-            <canvas id="signatureCanvas" class="w-full h-64 sm:h-72 rounded-xl"></canvas>
+        <section class="signature-section rounded-2xl p-2 bg-slate-50 border border-slate-200 mb-3">
+            <div class="signature-pad-frame">
+                <canvas id="signatureCanvas"></canvas>
+            </div>
         </section>
 
-        <section class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-center">
-            <div class="hint-box rounded-2xl p-4 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-                <div class="flex items-center gap-3">
+        <section class="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-3 items-center">
+            <div class="hint-box rounded-2xl p-3 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                <div class="flex items-center gap-3 flex-wrap">
                     <label for="strokeColor" class="text-slate-700 font-bold whitespace-nowrap">Màu nét vẽ:</label>
                     <input type="color" id="strokeColor" value="#171f79" title="Chọn màu nét vẽ">
                     <span id="colorValue" class="font-mono text-sm text-slate-600">#171f79</span>
@@ -113,7 +230,7 @@
                 </label>
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button id="downloadButton" class="btn btn-primary" type="button">Tải chữ ký</button>
                 <button id="downloadWhiteButton" class="btn btn-outline" type="button">Tải nền trắng</button>
                 <button id="clearButton" class="btn btn-danger" type="button">Đặt lại</button>
@@ -142,7 +259,21 @@
             ctx.strokeStyle = strokeColorInput.value || DEFAULT_SIGNATURE_COLOR;
         }
 
+        function enforceMobileRectangle() {
+            const frame = document.querySelector('.signature-pad-frame');
+            if (!frame || window.innerWidth > 768 || window.matchMedia('(orientation: landscape)').matches) return;
+
+            const targetHeight = Math.min(
+                Math.round(window.innerWidth * 0.76),
+                Math.round(window.innerHeight * 0.54),
+                410
+            );
+
+            frame.style.height = Math.max(targetHeight, 280) + 'px';
+        }
+
         function resizeCanvas() {
+            enforceMobileRectangle();
             const imageBeforeResize = document.createElement('canvas');
             imageBeforeResize.width = canvas.width;
             imageBeforeResize.height = canvas.height;
@@ -168,18 +299,13 @@
         function getPoint(event) {
             const rect = canvas.getBoundingClientRect();
             const source = event.touches ? event.touches[0] : event;
-
-            return {
-                x: source.clientX - rect.left,
-                y: source.clientY - rect.top
-            };
+            return { x: source.clientX - rect.left, y: source.clientY - rect.top };
         }
 
         function startDraw(event) {
             event.preventDefault();
             drawing = true;
             hasSignature = true;
-
             const point = getPoint(event);
             ctx.beginPath();
             ctx.moveTo(point.x, point.y);
@@ -188,7 +314,6 @@
         function draw(event) {
             if (!drawing) return;
             event.preventDefault();
-
             const point = getPoint(event);
             ctx.lineTo(point.x, point.y);
             ctx.stroke();
@@ -201,8 +326,7 @@
         }
 
         function clearSignature() {
-            const rect = canvas.getBoundingClientRect();
-            ctx.clearRect(0, 0, rect.width, rect.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             hasSignature = false;
         }
 
@@ -262,14 +386,8 @@
         });
 
         clearButton.addEventListener('click', clearSignature);
-
-        downloadButton.addEventListener('click', () => {
-            exportSignature(transparentBackgroundInput.checked);
-        });
-
-        downloadWhiteButton.addEventListener('click', () => {
-            exportSignature(false);
-        });
+        downloadButton.addEventListener('click', () => exportSignature(transparentBackgroundInput.checked));
+        downloadWhiteButton.addEventListener('click', () => exportSignature(false));
 
         canvas.addEventListener('mousedown', startDraw);
         canvas.addEventListener('mousemove', draw);
