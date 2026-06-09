@@ -8,7 +8,13 @@
     <style>
         :root { --primary-signature-color: #171f79; }
         * { box-sizing: border-box; }
-        html, body { width: 100%; min-height: 100%; margin: 0; }
+        html, body {
+            width: 100%;
+            min-height: 100%;
+            margin: 0;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+        }
 
         body {
             font-family: "Inter", Arial, sans-serif;
@@ -26,6 +32,15 @@
             touch-action: none;
             cursor: crosshair;
             border-radius: 16px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .signature-section,
+        .signature-pad-frame {
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         input[type="color"] {
@@ -111,7 +126,6 @@
 
             .signature-header p { display: none; }
 
-            /* Cho vùng ký tràn gần hết chiều ngang màn hình */
             .signature-section {
                 width: 100vw;
                 margin-left: calc(50% - 50vw);
@@ -123,7 +137,6 @@
                 border-radius: 0 !important;
             }
 
-            /* Lớn hơn bản user gửi nhưng vẫn giữ chữ nhật: width luôn lớn hơn height */
             .signature-pad-frame {
                 width: 100vw;
                 height: min(72vw, 52vh, 430px);
@@ -207,7 +220,7 @@
     <main class="signature-card bg-white/95 backdrop-blur p-3 sm:p-5 rounded-2xl shadow-2xl border border-white">
         <div class="signature-header text-center mb-3">
             <h1 class="font-black text-slate-800">Chữ Ký Điện Tử</h1>
-            <p class="text-sm text-slate-500 mt-1">Khung ký chữ nhật ngang, ưu tiên chiều rộng rất lớn trên điện thoại.</p>
+            <p class="text-sm text-slate-500 mt-1">Khung ký chữ nhật ngang, tối ưu mượt hơn trên điện thoại và tablet.</p>
         </div>
 
         <section class="signature-section rounded-2xl p-2 bg-slate-50 border border-slate-200 mb-3">
@@ -247,21 +260,30 @@
         const strokeColorInput = document.getElementById('strokeColor');
         const colorValue = document.getElementById('colorValue');
         const transparentBackgroundInput = document.getElementById('transparentBackground');
+        const frame = document.querySelector('.signature-pad-frame');
 
         const DEFAULT_SIGNATURE_COLOR = '#171f79';
-        let drawing = false;
         let hasSignature = false;
+        let isDrawing = false;
+        let activePointerId = null;
+        let lastPoint = null;
+        let lastMidPoint = null;
+        let strokeMoved = false;
+        let resizeTimer = null;
 
         function setupCanvasStyle() {
-            ctx.lineWidth = 2.5;
+            const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+            ctx.lineWidth = isCoarsePointer ? 3 : 2.5;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             ctx.strokeStyle = strokeColorInput.value || DEFAULT_SIGNATURE_COLOR;
         }
 
         function enforceMobileRectangle() {
-            const frame = document.querySelector('.signature-pad-frame');
-            if (!frame || window.innerWidth > 768 || window.matchMedia('(orientation: landscape)').matches) return;
+            if (!frame || window.innerWidth > 768 || window.matchMedia('(orientation: landscape)').matches) {
+                frame.style.height = '';
+                return;
+            }
 
             const targetHeight = Math.min(
                 Math.round(window.innerWidth * 0.76),
@@ -274,6 +296,7 @@
 
         function resizeCanvas() {
             enforceMobileRectangle();
+
             const imageBeforeResize = document.createElement('canvas');
             imageBeforeResize.width = canvas.width;
             imageBeforeResize.height = canvas.height;
@@ -292,42 +315,132 @@
             setupCanvasStyle();
 
             if (imageBeforeResize.width && imageBeforeResize.height && hasSignature) {
-                ctx.drawImage(imageBeforeResize, 0, 0, imageBeforeResize.width, imageBeforeResize.height, 0, 0, rect.width, rect.height);
+                ctx.drawImage(
+                    imageBeforeResize,
+                    0,
+                    0,
+                    imageBeforeResize.width,
+                    imageBeforeResize.height,
+                    0,
+                    0,
+                    rect.width,
+                    rect.height
+                );
             }
         }
 
-        function getPoint(event) {
+        function scheduleResize() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (!isDrawing) resizeCanvas();
+            }, 80);
+        }
+
+        function getPointFromEvent(event) {
             const rect = canvas.getBoundingClientRect();
-            const source = event.touches ? event.touches[0] : event;
-            return { x: source.clientX - rect.left, y: source.clientY - rect.top };
+            return {
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top
+            };
         }
 
-        function startDraw(event) {
-            event.preventDefault();
-            drawing = true;
-            hasSignature = true;
-            const point = getPoint(event);
+        function getMidPoint(p1, p2) {
+            return {
+                x: (p1.x + p2.x) / 2,
+                y: (p1.y + p2.y) / 2
+            };
+        }
+
+        function drawDot(point) {
             ctx.beginPath();
-            ctx.moveTo(point.x, point.y);
+            ctx.arc(point.x, point.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.fill();
         }
 
-        function draw(event) {
-            if (!drawing) return;
-            event.preventDefault();
-            const point = getPoint(event);
-            ctx.lineTo(point.x, point.y);
+        function beginStroke(point) {
+            isDrawing = true;
+            strokeMoved = false;
+            hasSignature = true;
+            lastPoint = point;
+            lastMidPoint = point;
+        }
+
+        function continueStroke(point) {
+            if (!lastPoint) {
+                beginStroke(point);
+                return;
+            }
+
+            const distanceX = point.x - lastPoint.x;
+            const distanceY = point.y - lastPoint.y;
+            if (distanceX === 0 && distanceY === 0) return;
+
+            const currentMidPoint = getMidPoint(lastPoint, point);
+            ctx.beginPath();
+            ctx.moveTo(lastMidPoint.x, lastMidPoint.y);
+            ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, currentMidPoint.x, currentMidPoint.y);
             ctx.stroke();
+
+            lastPoint = point;
+            lastMidPoint = currentMidPoint;
+            strokeMoved = true;
         }
 
-        function stopDraw() {
-            if (!drawing) return;
-            drawing = false;
-            ctx.closePath();
+        function endStroke() {
+            if (!isDrawing) return;
+
+            if (!strokeMoved && lastPoint) {
+                drawDot(lastPoint);
+            }
+
+            isDrawing = false;
+            activePointerId = null;
+            lastPoint = null;
+            lastMidPoint = null;
+            strokeMoved = false;
+        }
+
+        function handlePointerDown(event) {
+            if (activePointerId !== null && activePointerId !== event.pointerId) return;
+            event.preventDefault();
+
+            activePointerId = event.pointerId;
+            if (canvas.setPointerCapture) {
+                try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
+            }
+
+            beginStroke(getPointFromEvent(event));
+        }
+
+        function handlePointerMove(event) {
+            if (!isDrawing || event.pointerId !== activePointerId) return;
+            event.preventDefault();
+
+            const events = typeof event.getCoalescedEvents === 'function'
+                ? event.getCoalescedEvents()
+                : [event];
+
+            for (const sample of events) {
+                continueStroke(getPointFromEvent(sample));
+            }
+        }
+
+        function handlePointerUp(event) {
+            if (event.pointerId !== activePointerId) return;
+            event.preventDefault();
+
+            if (canvas.releasePointerCapture) {
+                try { canvas.releasePointerCapture(event.pointerId); } catch (_) {}
+            }
+
+            endStroke();
         }
 
         function clearSignature() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             hasSignature = false;
+            endStroke();
         }
 
         function downloadDataUrl(dataUrl, filename) {
@@ -345,20 +458,18 @@
                 return;
             }
 
-            const rect = canvas.getBoundingClientRect();
             const outputCanvas = document.createElement('canvas');
             const outputCtx = outputCanvas.getContext('2d');
-            const ratio = Math.max(window.devicePixelRatio || 1, 1);
 
-            outputCanvas.width = Math.round(rect.width * ratio);
-            outputCanvas.height = Math.round(rect.height * ratio);
+            outputCanvas.width = canvas.width;
+            outputCanvas.height = canvas.height;
 
             if (!removeBackground) {
                 outputCtx.fillStyle = '#ffffff';
                 outputCtx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
             }
 
-            outputCtx.drawImage(canvas, 0, 0, outputCanvas.width, outputCanvas.height);
+            outputCtx.drawImage(canvas, 0, 0);
 
             const now = new Date();
             const timestamp = now.getFullYear().toString()
@@ -377,7 +488,10 @@
         }
 
         window.addEventListener('load', resizeCanvas);
-        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('resize', scheduleResize);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', scheduleResize);
+        }
 
         strokeColorInput.addEventListener('input', (e) => {
             const selectedColor = e.target.value || DEFAULT_SIGNATURE_COLOR;
@@ -389,15 +503,13 @@
         downloadButton.addEventListener('click', () => exportSignature(transparentBackgroundInput.checked));
         downloadWhiteButton.addEventListener('click', () => exportSignature(false));
 
-        canvas.addEventListener('mousedown', startDraw);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('mouseup', stopDraw);
-        canvas.addEventListener('mouseout', stopDraw);
-
-        canvas.addEventListener('touchstart', startDraw, { passive: false });
-        canvas.addEventListener('touchmove', draw, { passive: false });
-        canvas.addEventListener('touchend', stopDraw);
-        canvas.addEventListener('touchcancel', stopDraw);
+        if (window.PointerEvent) {
+            canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
+            canvas.addEventListener('pointermove', handlePointerMove, { passive: false });
+            canvas.addEventListener('pointerup', handlePointerUp, { passive: false });
+            canvas.addEventListener('pointercancel', handlePointerUp, { passive: false });
+            canvas.addEventListener('pointerleave', handlePointerUp, { passive: false });
+        }
     </script>
 </body>
 </html>
